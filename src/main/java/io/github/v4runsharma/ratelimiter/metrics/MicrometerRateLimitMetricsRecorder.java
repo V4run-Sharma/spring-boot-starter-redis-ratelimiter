@@ -24,14 +24,14 @@ public final class MicrometerRateLimitMetricsRecorder implements RateLimitMetric
     String outcome = decision.isAllowed() ? "allowed" : "blocked";
     Counter.builder("ratelimiter.requests")
         .tag("name", sanitize(name))
-        .tag("scope", sanitize(policy.getScope()))
+        .tag("scope", policy.getScope().name())
         .tag("outcome", outcome)
         .register(meterRegistry)
         .increment();
 
     Timer.builder("ratelimiter.evaluate.latency")
         .tag("name", sanitize(name))
-        .tag("scope", sanitize(policy.getScope()))
+        .tag("scope", policy.getScope().name())
         .register(meterRegistry)
         .record(latency);
   }
@@ -40,14 +40,14 @@ public final class MicrometerRateLimitMetricsRecorder implements RateLimitMetric
   public void recordError(String name, RateLimitPolicy policy, Duration latency, Throwable error) {
     Counter.builder("ratelimiter.errors")
         .tag("name", sanitize(name))
-        .tag("scope", sanitize(policy.getScope()))
+        .tag("scope", policy.getScope().name())
         .tag("exception", error == null ? "unknown" : sanitize(error.getClass().getSimpleName()))
         .register(meterRegistry)
         .increment();
 
     Timer.builder("ratelimiter.evaluate.latency")
         .tag("name", sanitize(name))
-        .tag("scope", sanitize(policy.getScope()))
+        .tag("scope", policy.getScope().name())
         .register(meterRegistry)
         .record(latency);
   }

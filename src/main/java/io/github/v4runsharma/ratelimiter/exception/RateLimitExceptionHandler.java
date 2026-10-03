@@ -55,7 +55,8 @@ public final class RateLimitExceptionHandler {
 
   private static long resolveRetryAfterSeconds(RateLimitDecision decision, Duration fallbackWindow) {
     Duration retryAfter = decision.getRetryAfter().orElse(fallbackWindow);
-    long seconds = retryAfter.toSeconds();
+    // Round up: retrying after a truncated value would land before the window resets.
+    long seconds = retryAfter.getSeconds() + (retryAfter.getNano() > 0 ? 1 : 0);
     return Math.max(1L, seconds);
   }
 }

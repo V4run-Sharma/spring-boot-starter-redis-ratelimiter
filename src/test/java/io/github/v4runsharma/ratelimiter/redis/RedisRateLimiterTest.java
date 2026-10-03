@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 import io.github.v4runsharma.ratelimiter.exception.RateLimiterBackendException;
 import io.github.v4runsharma.ratelimiter.model.RateLimitDecision;
 import io.github.v4runsharma.ratelimiter.model.RateLimitPolicy;
+import io.github.v4runsharma.ratelimiter.model.RateLimitScope;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -41,7 +42,7 @@ class RedisRateLimiterTest {
 
   @Test
   void evaluateAllowsRequestWithinLimit() {
-    RateLimitPolicy policy = new RateLimitPolicy(2, Duration.ofSeconds(10), "GLOBAL");
+    RateLimitPolicy policy = new RateLimitPolicy(2, Duration.ofSeconds(10), RateLimitScope.GLOBAL);
     when(valueOperations.increment(anyString())).thenReturn(1L);
     when(redisTemplate.expire(anyString(), any(Duration.class))).thenReturn(true);
 
@@ -57,7 +58,7 @@ class RedisRateLimiterTest {
 
   @Test
   void evaluateBlocksRequestWhenLimitExceeded() {
-    RateLimitPolicy policy = new RateLimitPolicy(2, Duration.ofSeconds(10), "GLOBAL");
+    RateLimitPolicy policy = new RateLimitPolicy(2, Duration.ofSeconds(10), RateLimitScope.GLOBAL);
     when(valueOperations.increment(anyString())).thenReturn(3L);
 
     RateLimitDecision decision = rateLimiter.evaluate("customer-1", policy);
@@ -71,7 +72,7 @@ class RedisRateLimiterTest {
 
   @Test
   void evaluateSetsTtlOnlyOnCounterCreation() {
-    RateLimitPolicy policy = new RateLimitPolicy(5, Duration.ofSeconds(10), "GLOBAL");
+    RateLimitPolicy policy = new RateLimitPolicy(5, Duration.ofSeconds(10), RateLimitScope.GLOBAL);
     when(valueOperations.increment(anyString())).thenReturn(1L, 2L);
     when(redisTemplate.expire(anyString(), any(Duration.class))).thenReturn(true);
 
@@ -89,7 +90,7 @@ class RedisRateLimiterTest {
         "ratelimiter",
         false
     );
-    RateLimitPolicy policy = new RateLimitPolicy(2, Duration.ofSeconds(10), "GLOBAL");
+    RateLimitPolicy policy = new RateLimitPolicy(2, Duration.ofSeconds(10), RateLimitScope.GLOBAL);
     when(valueOperations.increment(anyString())).thenThrow(new RuntimeException("redis down"));
 
     assertThatThrownBy(() -> failClosedLimiter.evaluate("customer-3", policy))
@@ -105,7 +106,7 @@ class RedisRateLimiterTest {
         "ratelimiter",
         true
     );
-    RateLimitPolicy policy = new RateLimitPolicy(2, Duration.ofSeconds(10), "GLOBAL");
+    RateLimitPolicy policy = new RateLimitPolicy(2, Duration.ofSeconds(10), RateLimitScope.GLOBAL);
     when(valueOperations.increment(anyString())).thenThrow(new RuntimeException("redis down"));
 
     RateLimitDecision decision = failOpenLimiter.evaluate("customer-4", policy);

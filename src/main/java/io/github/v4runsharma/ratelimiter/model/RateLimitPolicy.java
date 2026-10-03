@@ -8,9 +8,9 @@ public class RateLimitPolicy {
 
   private final int limit; // Max requests allowed
   private final Duration window; // Time window for the limit
-  private final String scope; // Optional scope (e.g., "user", "ip")
+  private final RateLimitScope scope; // Who the limit applies to (global, per IP, per user)
 
-  public RateLimitPolicy(int limit, Duration window, String scope) {
+  public RateLimitPolicy(int limit, Duration window, RateLimitScope scope) {
     if (limit <= 0) {
       throw new IllegalArgumentException("Limit must be greater than 0");
     }
@@ -20,7 +20,7 @@ public class RateLimitPolicy {
 
     this.limit = limit;
     this.window = window;
-    this.scope = RateLimitScope.from(scope).getScope();
+    this.scope = Objects.requireNonNull(scope, "scope must not be null");
   }
 
   public int getLimit() {
@@ -31,7 +31,7 @@ public class RateLimitPolicy {
     return window;
   }
 
-  public String getScope() {
+  public RateLimitScope getScope() {
     return scope;
   }
 
@@ -55,7 +55,7 @@ public class RateLimitPolicy {
     return "RateLimitPolicy{" +
         "limit=" + limit +
         ", window=" + window +
-        ", scope='" + scope + '\'' +
+        ", scope=" + scope +
         '}';
   }
 }

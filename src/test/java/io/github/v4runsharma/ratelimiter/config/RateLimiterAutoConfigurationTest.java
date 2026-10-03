@@ -15,6 +15,9 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.springframework.aop.Advisor;
+import org.springframework.boot.actuate.autoconfigure.metrics.CompositeMeterRegistryAutoConfiguration;
+import org.springframework.boot.actuate.autoconfigure.metrics.MetricsAutoConfiguration;
+import org.springframework.boot.actuate.autoconfigure.metrics.export.simple.SimpleMetricsExportAutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
@@ -84,6 +87,20 @@ class RateLimiterAutoConfigurationTest {
     contextRunner
         .withUserConfiguration(MeterRegistryTestConfiguration.class)
         .run(context -> assertThat(context).hasSingleBean(MicrometerRateLimitMetricsRecorder.class));
+  }
+
+  @Test
+  void createsMicrometerMetricsRecorderWhenActuatorProvidesRegistry() {
+    contextRunner
+        .withConfiguration(AutoConfigurations.of(
+            MetricsAutoConfiguration.class,
+            CompositeMeterRegistryAutoConfiguration.class,
+            SimpleMetricsExportAutoConfiguration.class
+        ))
+        .run(context -> {
+          assertThat(context).hasSingleBean(MeterRegistry.class);
+          assertThat(context).hasSingleBean(MicrometerRateLimitMetricsRecorder.class);
+        });
   }
 
   @Test

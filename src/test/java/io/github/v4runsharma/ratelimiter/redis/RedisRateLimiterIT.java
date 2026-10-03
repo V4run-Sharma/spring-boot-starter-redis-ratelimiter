@@ -3,6 +3,7 @@ package io.github.v4runsharma.ratelimiter.redis;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.github.v4runsharma.ratelimiter.model.RateLimitPolicy;
+import io.github.v4runsharma.ratelimiter.model.RateLimitScope;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -62,7 +63,7 @@ class RedisRateLimiterIT {
         "integration",
         false
     );
-    RateLimitPolicy policy = new RateLimitPolicy(2, Duration.ofMinutes(1), "GLOBAL");
+    RateLimitPolicy policy = new RateLimitPolicy(2, Duration.ofMinutes(1), RateLimitScope.GLOBAL);
     String key = "serial-" + UUID.randomUUID();
 
     assertThat(rateLimiter.evaluate(key, policy).isAllowed()).isTrue();
@@ -81,7 +82,7 @@ class RedisRateLimiterIT {
         "integration",
         false
     );
-    RateLimitPolicy policy = new RateLimitPolicy(limit, Duration.ofMinutes(1), "GLOBAL");
+    RateLimitPolicy policy = new RateLimitPolicy(limit, Duration.ofMinutes(1), RateLimitScope.GLOBAL);
     String key = "concurrent-" + UUID.randomUUID();
 
     CountDownLatch startLatch = new CountDownLatch(1);

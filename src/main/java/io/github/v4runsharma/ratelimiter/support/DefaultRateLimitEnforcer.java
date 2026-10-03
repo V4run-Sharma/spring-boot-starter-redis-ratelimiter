@@ -16,6 +16,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.springframework.aop.framework.AopProxyUtils;
 
 /**
  * Default orchestration implementation for rate-limit evaluation and enforcement.
@@ -59,11 +60,11 @@ public final class DefaultRateLimitEnforcer implements RateLimitEnforcer {
     if (keyResolvers != null) {
       for (RateLimitKeyResolver resolver : keyResolvers) {
         if (resolver != null) {
-          resolverMap.put(resolver.getClass(), resolver);
+          resolverMap.put(resolverType(resolver), resolver);
         }
       }
     }
-    resolverMap.putIfAbsent(defaultKeyResolver.getClass(), defaultKeyResolver);
+    resolverMap.putIfAbsent(resolverType(defaultKeyResolver), defaultKeyResolver);
     this.keyResolversByType = Map.copyOf(resolverMap);
   }
 
@@ -125,6 +126,12 @@ public final class DefaultRateLimitEnforcer implements RateLimitEnforcer {
       throw new IllegalStateException("No RateLimitKeyResolver registered for type: " + resolverType.getName());
     }
     return resolver;
+  }
+
+  // Key by the user's class, not a CGLIB/JDK proxy class, so @RateLimit(keyResolver = X.class) still matches.
+  @SuppressWarnings("unchecked")
+  private static Class<? extends RateLimitKeyResolver> resolverType(RateLimitKeyResolver resolver) {
+    return (Class<? extends RateLimitKeyResolver>) AopProxyUtils.ultimateTargetClass(resolver);
   }
 
   private static String requireNonBlank(String value) {

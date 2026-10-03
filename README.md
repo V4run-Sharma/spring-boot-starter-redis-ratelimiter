@@ -1,8 +1,10 @@
 # Spring Boot Redis RateLimiter Starter
 
-[![Build](https://github.com/v4runsharma/spring-boot-starter-redis-ratelimiter/actions/workflows/ci.yml/badge.svg)](https://github.com/v4runsharma/spring-boot-starter-redis-ratelimiter/actions/workflows/ci.yml)
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.v4run-sharma/spring-boot-starter-redis-ratelimiter)](https://central.sonatype.com/artifact/io.github.v4run-sharma/spring-boot-starter-redis-ratelimiter)
+[![Build](https://github.com/V4run-Sharma/spring-boot-starter-redis-ratelimiter/actions/workflows/ci.yml/badge.svg)](https://github.com/V4run-Sharma/spring-boot-starter-redis-ratelimiter/actions/workflows/ci.yml)
 ![Java](https://img.shields.io/badge/Java-17-blue)
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.x-6DB33F)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue)](LICENSE)
 
 A lightweight Spring Boot starter for annotation-driven rate limiting backed by Redis.
 
@@ -17,8 +19,10 @@ This starter provides a production-focused, log-and-metrics-friendly approach to
   - [1. Add Dependency](#1-add-dependency)
   - [2. Configure Redis](#2-configure-redis)
   - [3. Add `@RateLimit` to Service Methods](#3-add-ratelimit-to-service-methods)
-- [Understanding Keying](#understanding-keying)
-- [Per-User Example with Custom Key Resolver](#per-user-example-with-custom-key-resolver)
+- [Scopes and Keying](#scopes-and-keying)
+- [Per-IP and Per-User Limits](#per-ip-and-per-user-limits)
+- [Stacking Limits](#stacking-limits)
+- [Custom Key Resolver](#custom-key-resolver)
 - [Class-Level Annotation](#class-level-annotation)
 - [What Happens When the Limit Is Exceeded](#what-happens-when-the-limit-is-exceeded)
 - [Configuration](#configuration)
@@ -27,6 +31,7 @@ This starter provides a production-focused, log-and-metrics-friendly approach to
 - [Quick Validation Checklist](#quick-validation-checklist)
 - [Testing](#testing)
 - [Compatibility](#compatibility)
+- [Upgrading from 1.x](#upgrading-from-1x)
 - [Relationship to API Gateway Rate Limiting](#relationship-to-api-gateway-rate-limiting)
 - [Release to Maven Central](#release-to-maven-central)
 - [License](#license)
@@ -35,6 +40,8 @@ This starter provides a production-focused, log-and-metrics-friendly approach to
 ## Features
 
 - `@RateLimit` annotation for method-level and class-level throttling
+- Built-in `GLOBAL`, per-`IP`, and per-`USER` scopes; an unknown scope fails the build
+- Stackable limits (for example per IP and per user on the same method)
 - Redis fixed-window implementation using `INCR` + TTL (no Lua scripts)
 - Automatic Spring Boot 3.x auto-configuration (no manual AOP wiring)
 - HTTP `429` mapping with optional `Retry-After` and `RateLimit-*` headers
@@ -60,20 +67,22 @@ This starter standardizes method-level rate limiting so teams avoid duplicating 
 
 ### 1. Add Dependency
 
+Available on [Maven Central](https://central.sonatype.com/artifact/io.github.v4run-sharma/spring-boot-starter-redis-ratelimiter).
+
 Maven (`pom.xml`):
 
 ```xml
 <dependency>
   <groupId>io.github.v4run-sharma</groupId>
   <artifactId>spring-boot-starter-redis-ratelimiter</artifactId>
-  <version>1.0.1</version>
+  <version>2.0.0</version>
 </dependency>
 ```
 
 Gradle:
 
 ```gradle
-implementation("io.github.v4run-sharma:spring-boot-starter-redis-ratelimiter:1.0.1")
+implementation("io.github.v4run-sharma:spring-boot-starter-redis-ratelimiter:2.0.0")
 ```
 
 ### 2. Configure Redis
@@ -98,6 +107,7 @@ docker run --name redis-ratelimiter -p 6379:6379 -d redis:7-alpine
 
 ```java
 import io.github.v4runsharma.ratelimiter.annotation.RateLimit;
+import io.github.v4runsharma.ratelimiter.model.RateLimitScope;
 import java.util.concurrent.TimeUnit;
 import org.springframework.stereotype.Service;
 
@@ -106,7 +116,7 @@ public class BillingService {
 
   @RateLimit(
       name = "invoice-create",
-      scope = "GLOBAL",
+      scope = RateLimitScope.GLOBAL,
       limit = 10,
       duration = 1,
       timeUnit = TimeUnit.MINUTES
@@ -117,16 +127,57 @@ public class BillingService {
 }
 ```
 
-## Understanding Keying
+## Scopes and Keying
 
-By default, the starter resolves keys like this:
+`scope` is a `RateLimitScope` enum, so a scope that doesn't exist fails compilation.
 
-- If `key` is set on the annotation: `scope:key`
-- If `key` is not set: `scope:fully.qualified.ClassName#methodName`
+| Scope | One bucket per | Default key |
+|---|---|---|
+| `GLOBAL` (default) | operation, shared by all callers | `global:<operation>` |
+| `IP` | client IP address | `ip:<client-ip>:<operation>` |
+| `USER` | authenticated user | `user:<principal-name>:<operation>` |
 
-`scope` is a label, not identity by itself. If you need per-user or per-tenant limits, use a custom `RateLimitKeyResolver`.
+`<operation>` is the annotation's `key` if set, otherwise `fully.qualified.ClassName#methodName`. In Redis, keys are additionally prefixed with `ratelimiter.redis-key-prefix` and suffixed with the window start.
 
-## Per-User Example with Custom Key Resolver
+## Per-IP and Per-User Limits
+
+`IP` and `USER` read the HTTP request bound to the current thread (Spring MVC):
+
+- `IP` uses `HttpServletRequest#getRemoteAddr()`. IPv6 addresses are grouped by their /64 prefix, because one client usually controls a whole /64 and could otherwise rotate addresses.
+- `USER` uses `HttpServletRequest#getUserPrincipal()`, which Spring Security sets for authenticated users. Anonymous requests have no principal.
+
+Behind a load balancer, ingress, or API gateway, `getRemoteAddr()` returns the proxy's address, so every client would share one bucket. Enable forwarded-header handling so it returns the real client:
+
+```properties
+server.forward-headers-strategy=native
+```
+
+Only trust forwarded headers set by your own proxies. The starter never reads `X-Forwarded-For` itself, because clients can forge it to dodge IP limits.
+
+Instead of silently skipping the limit, `IP` and `USER` throw `IllegalStateException` (HTTP 500) when:
+
+- No HTTP request is bound to the thread (`@Async`, `@Scheduled`, message listeners, WebFlux).
+- `USER` is used on a request without an authenticated principal.
+
+Use `USER` on endpoints that require authentication, and `IP` on public ones such as login or signup.
+
+## Stacking Limits
+
+Repeat `@RateLimit` to apply several limits; every one must pass. Limits are enforced in declaration order, and the first denial stops the call without charging the remaining limits.
+
+```java
+@RateLimit(name = "orders-per-ip", scope = RateLimitScope.IP, limit = 100, duration = 1, timeUnit = TimeUnit.MINUTES)
+@RateLimit(name = "orders-per-user", scope = RateLimitScope.USER, limit = 20, duration = 1, timeUnit = TimeUnit.MINUTES)
+public Order createOrder(OrderRequest request) {
+  // ...
+}
+```
+
+Per-IP limits catch one source hammering many accounts; per-user limits catch one account spread across many IPs. Give stacked limits distinct names so the `429` response and metrics show which one tripped.
+
+## Custom Key Resolver
+
+For identities the built-in scopes don't cover (tenant, API key, account), implement `RateLimitKeyResolver` as a Spring bean. The resolver decides the whole key; `scope` then only labels metrics.
 
 ```java
 import io.github.v4runsharma.ratelimiter.core.RateLimitContext;
@@ -134,12 +185,11 @@ import io.github.v4runsharma.ratelimiter.key.RateLimitKeyResolver;
 import org.springframework.stereotype.Component;
 
 @Component
-public class UserIdKeyResolver implements RateLimitKeyResolver {
+public class TenantKeyResolver implements RateLimitKeyResolver {
   @Override
   public String resolveKey(RateLimitContext context) {
-    Object[] args = context.getArguments();
-    String userId = String.valueOf(args[0]); // Example: first argument is userId
-    return "user:" + userId + ":" + context.getMethod().getName();
+    String tenantId = String.valueOf(context.getArguments()[0]); // Example: first argument is the tenant ID
+    return "tenant:" + tenantId + ":" + context.getMethod().getName();
   }
 }
 ```
@@ -148,21 +198,22 @@ Use it in the annotation:
 
 ```java
 @RateLimit(
-    name = "invoice-create-per-user",
-    scope = "USER",
-    keyResolver = UserIdKeyResolver.class,
+    name = "report-per-tenant",
+    keyResolver = TenantKeyResolver.class,
     limit = 5,
     duration = 1,
     timeUnit = TimeUnit.MINUTES
 )
-public String createInvoice(String userId, String accountId) {
-  return "ok";
+public Report generateReport(String tenantId) {
+  // ...
 }
 ```
 
 ## Class-Level Annotation
 
-`@RateLimit` can be placed on a class or a method. Method-level annotations take precedence over class-level annotations.
+A class-level `@RateLimit` applies to every public method of the bean except `toString`, `equals`, and `hashCode`. Each method gets its own bucket unless `key` is set, in which case they share one.
+
+Method-level annotations replace class-level ones for that method, and an overriding method's annotations replace the inherited method's.
 
 ## What Happens When the Limit Is Exceeded
 
@@ -188,6 +239,8 @@ Example response body:
   "retryAfterSeconds": 34
 }
 ```
+
+`Retry-After` and `RateLimit-Reset` are rounded up to whole seconds.
 
 When a `RateLimitExceededException` is thrown, it is mapped automatically by the starter's exception handler in servlet apps.
 
@@ -232,9 +285,9 @@ Useful metric tags:
 
 ```mermaid
 flowchart TD
-  A["Incoming request"] --> B["AOP interceptor finds @RateLimit"]
+  A["Incoming request"] --> B["AOP interceptor finds @RateLimit (one or more)"]
   B --> C["Policy provider resolves limit/window"]
-  B --> D["Key resolver resolves bucket key"]
+  B --> D["Key resolver builds key (scope + IP/user + operation)"]
   C --> E["RedisRateLimiter evaluates INCR + TTL"]
   D --> E
   E --> F{"Allowed?"}
@@ -242,6 +295,8 @@ flowchart TD
   F -->|No| H["Throw RateLimitExceededException"]
   H --> I["HTTP 429 handler (servlet)"]
 ```
+
+Rate limiting works through Spring AOP proxies, so calls from within the same class (`this.method()`) are not rate limited.
 
 ## Quick Validation Checklist
 
@@ -268,6 +323,13 @@ Notes:
 - Spring Boot 3.x
 - Redis (tested with Redis 7 via Testcontainers image)
 
+## Upgrading from 1.x
+
+- `scope` is now a `RateLimitScope` enum: replace `scope = "USER"` with `scope = RateLimitScope.USER`, or drop it for `GLOBAL`.
+- `IP` and `USER` now identify the caller (in 1.x they were labels and all callers shared one bucket). Their Redis keys change, and they require an HTTP request; see [Per-IP and Per-User Limits](#per-ip-and-per-user-limits).
+- Class-level `@RateLimit` now applies to all methods of the class. In 1.x it only took effect on methods that were also annotated.
+- Custom `RateLimitPolicyProvider` implementations must pass a `RateLimitScope` to `RateLimitPolicy`.
+
 ## Relationship to API Gateway Rate Limiting
 
 This starter does not replace gateway throttling. It is intended to:
@@ -278,45 +340,40 @@ This starter does not replace gateway throttling. It is intended to:
 
 ## Release to Maven Central
 
+Published through the [Sonatype Central Portal](https://central.sonatype.com/) with `central-publishing-maven-plugin`.
+
 Prerequisites:
 
-- Sonatype OSSRH account with publishing access for `io.github.v4runsharma`
-- GPG key configured locally
-- Credentials in `~/.m2/settings.xml` for server id `ossrh`
-- GPG passphrase configured (environment variable or Maven settings)
+- Verified namespace `io.github.v4run-sharma` in the Central Portal
+- A Portal user token (Central Portal → Account → Generate User Token)
+- A GPG key, with its public key uploaded to a keyserver (for example `keys.openpgp.org`)
 
-Example `~/.m2/settings.xml` snippet:
+`~/.m2/settings.xml`:
 
 ```xml
 <settings>
   <servers>
     <server>
-      <id>ossrh</id>
-      <username>${env.OSSRH_USERNAME}</username>
-      <password>${env.OSSRH_TOKEN}</password>
+      <id>central</id>
+      <username>${env.CENTRAL_TOKEN_USERNAME}</username>
+      <password>${env.CENTRAL_TOKEN_PASSWORD}</password>
     </server>
   </servers>
 </settings>
 ```
 
-### Snapshot release
+Release steps:
 
-Use a `-SNAPSHOT` version and run:
+1. Set the release version in `pom.xml` and in this README's dependency snippets, and date the entry in `CHANGELOG.md`.
+2. Run the full test suite, sign, and publish (requires Docker for the integration tests):
 
-```bash
-mvn -DskipTests clean deploy
-```
+   ```bash
+   mvn -DperformRelease=true -DrunITs=true clean deploy
+   ```
 
-### Staged release
+3. Commit, then tag and push the release: `git tag vX.Y.Z && git push origin vX.Y.Z`.
 
-1. Set a non-snapshot version (for example `1.0.1`).
-2. Run:
-
-```bash
-mvn -DperformRelease=true -Prelease -DskipTests clean deploy
-```
-
-3. Close and release the staging repository in Sonatype.
+`autoPublish` is enabled, so a deployment that passes validation goes live on Maven Central without a manual step, and published versions can't be changed or removed. To review first, set `<autoPublish>false</autoPublish>` and publish from the Portal's Deployments page. New versions usually take up to 30 minutes to appear on Maven Central.
 
 ## License
 
