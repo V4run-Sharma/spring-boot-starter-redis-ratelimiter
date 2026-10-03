@@ -3,7 +3,7 @@
 [![Maven Central](https://img.shields.io/maven-central/v/io.github.v4run-sharma/spring-boot-starter-redis-ratelimiter)](https://central.sonatype.com/artifact/io.github.v4run-sharma/spring-boot-starter-redis-ratelimiter)
 [![Build](https://github.com/V4run-Sharma/spring-boot-starter-redis-ratelimiter/actions/workflows/ci.yml/badge.svg)](https://github.com/V4run-Sharma/spring-boot-starter-redis-ratelimiter/actions/workflows/ci.yml)
 ![Java](https://img.shields.io/badge/Java-17-blue)
-![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.x-6DB33F)
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.x%20%7C%204.x-6DB33F)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue)](LICENSE)
 
 A lightweight Spring Boot starter for annotation-driven rate limiting backed by Redis.
@@ -60,7 +60,7 @@ This starter standardizes method-level rate limiting so teams avoid duplicating 
 ## Requirements
 
 - Java 17+
-- Spring Boot 3.x
+- Spring Boot 3.x, or 4.x with version 2.1.0 or later
 - Redis reachable from your app
 
 ## Quick Start
@@ -311,6 +311,12 @@ Rate limiting works through Spring AOP proxies, so calls from within the same cl
 
 - Unit tests: `mvn test`
 - Integration tests (Testcontainers): `mvn verify -DrunITs=true`
+- Spring Boot compatibility: install the starter, then run it inside a real app of a given Boot version:
+
+  ```bash
+  mvn install -DskipTests
+  mvn -f compat-test/pom.xml verify -Dspring-boot.version=4.1.1
+  ```
 
 Notes:
 
@@ -320,8 +326,10 @@ Notes:
 ## Compatibility
 
 - Java 17+
-- Spring Boot 3.x
+- Spring Boot 3.x and 4.x (4.x from 2.1.0). CI runs the starter inside Spring Boot 3.5 and 4.1 apps.
 - Redis (tested with Redis 7 via Testcontainers image)
+
+On Spring Boot 4, use `spring-boot-starter-webmvc` (the renamed `spring-boot-starter-web`) for Spring MVC apps.
 
 ## Upgrading from 1.x
 

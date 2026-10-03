@@ -6,7 +6,7 @@
 
     <groupId>io.github.v4run-sharma</groupId>
     <artifactId>spring-boot-starter-redis-ratelimiter</artifactId>
-    <version>2.0.0</version>
+    <version>2.1.0</version>
     <name>spring-boot-starter-redis-ratelimiter</name>
     <description>Spring Boot starter for Redis-backed method-level rate limiting.</description>
     <url>https://github.com/V4run-Sharma/spring-boot-starter-redis-ratelimiter</url>
@@ -72,13 +72,10 @@
             <artifactId>spring-web</artifactId>
         </dependency>
 
+        <!-- Brings Spring Data Redis + Lettuce and, on Spring Boot 4, the Redis auto-configuration module. -->
         <dependency>
-            <groupId>org.springframework.data</groupId>
-            <artifactId>spring-data-redis</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.lettuce</groupId>
-            <artifactId>lettuce-core</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
 
         <dependency>

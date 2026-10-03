@@ -29,8 +29,6 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
-import org.springframework.boot.autoconfigure.aop.AopAutoConfiguration;
-import org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -47,14 +45,20 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 /**
  * Auto-configuration for redis-backed rate limiting.
  */
-@AutoConfiguration(
-    after = {RedisAutoConfiguration.class, AopAutoConfiguration.class},
-    // Run after actuator registers its MeterRegistry so @ConditionalOnBean(MeterRegistry) can see it.
-    afterName = {
-        "org.springframework.boot.actuate.autoconfigure.metrics.MetricsAutoConfiguration",
-        "org.springframework.boot.actuate.autoconfigure.metrics.CompositeMeterRegistryAutoConfiguration"
-    }
-)
+// Ordered by name so one artifact works on Spring Boot 3 and 4, which moved these classes.
+// Running after them lets @ConditionalOnBean see StringRedisTemplate and MeterRegistry.
+@AutoConfiguration(afterName = {
+    // Redis
+    "org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration", // Boot 3
+    "org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration", // Boot 4
+    // AOP
+    "org.springframework.boot.autoconfigure.aop.AopAutoConfiguration",
+    // Actuator metrics
+    "org.springframework.boot.actuate.autoconfigure.metrics.MetricsAutoConfiguration", // Boot 3
+    "org.springframework.boot.actuate.autoconfigure.metrics.CompositeMeterRegistryAutoConfiguration", // Boot 3
+    "org.springframework.boot.micrometer.metrics.autoconfigure.MetricsAutoConfiguration", // Boot 4
+    "org.springframework.boot.micrometer.metrics.autoconfigure.CompositeMeterRegistryAutoConfiguration" // Boot 4
+})
 @ConditionalOnClass({StringRedisTemplate.class, Advisor.class, MethodInterceptor.class})
 @EnableConfigurationProperties(RateLimiterProperties.class)
 @ConditionalOnProperty(prefix = "ratelimiter", name = "enabled", havingValue = "true", matchIfMissing = true)

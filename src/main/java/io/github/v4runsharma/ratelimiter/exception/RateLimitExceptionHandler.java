@@ -50,7 +50,9 @@ public final class RateLimitExceptionHandler {
       headers.set("RateLimit-Reset", Long.toString(retryAfterSeconds));
     }
 
-    return new ResponseEntity<>(detail, headers, HttpStatus.TOO_MANY_REQUESTS);
+    // Builder rather than the (body, headers, status) constructor: Spring 7's HttpHeaders is no longer a
+    // MultiValueMap, so that constructor call would break when this class runs on Spring Boot 4.
+    return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).headers(headers).body(detail);
   }
 
   private static long resolveRetryAfterSeconds(RateLimitDecision decision, Duration fallbackWindow) {

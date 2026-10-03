@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.1.0] - Unreleased
+
+### Added
+- Spring Boot 4.x support; Spring Boot 3.x remains supported by the same artifact.
+- `compat-test` project and CI job that run the starter inside Spring Boot 3.5 and 4.1 apps.
+
+### Changed
+- Depends on `spring-boot-starter-data-redis` instead of `spring-data-redis` and `lettuce-core` directly, so Spring Boot 4 apps get Redis auto-configuration.
+
+### Fixed
+- On Spring Boot 4, rate limiting was silently skipped because auto-configuration ordering referenced Spring Boot 3 class names.
+- The HTTP 429 response is now built in a way that also works with Spring Framework 7, where `HttpHeaders` is no longer a `MultiValueMap`.
+
 ## [2.0.0] - 2026-10-03
 
 ### Breaking
