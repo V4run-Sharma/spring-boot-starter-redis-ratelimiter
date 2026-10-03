@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.1.0] - Unreleased
+## [2.1.0] - 2026-10-03
 
 ### Added
 - Spring Boot 4.x support; Spring Boot 3.x remains supported by the same artifact.

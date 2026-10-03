@@ -75,14 +75,14 @@ Maven (`pom.xml`):
 <dependency>
   <groupId>io.github.v4run-sharma</groupId>
   <artifactId>spring-boot-starter-redis-ratelimiter</artifactId>
-  <version>2.0.0</version>
+  <version>2.1.0</version>
 </dependency>
 ```
 
 Gradle:
 
 ```gradle
-implementation("io.github.v4run-sharma:spring-boot-starter-redis-ratelimiter:2.0.0")
+implementation("io.github.v4run-sharma:spring-boot-starter-redis-ratelimiter:2.1.0")
 ```
 
 ### 2. Configure Redis
