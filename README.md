@@ -10,6 +10,8 @@ A lightweight Spring Boot starter for annotation-driven rate limiting backed by 
 
 This starter provides a production-focused, log-and-metrics-friendly approach to request throttling and complements API Gateway-level rate limiting by enabling method-level protection inside services.
 
+**Demo:** [RedisRateLimiterDemo](https://github.com/V4run-Sharma/RedisRateLimiterDemo) is a runnable Spring Boot app that exercises every feature below, with a script that verifies each case end to end.
+
 ## Table of Contents
 
 - [Features](#features)
@@ -306,6 +308,8 @@ Rate limiting works through Spring AOP proxies, so calls from within the same cl
 4. Confirm HTTP `429` once the threshold is crossed.
 5. Confirm Redis keys are created with your configured prefix.
 6. Confirm metrics appear in your meter registry.
+
+For a ready-made version of these checks, run the [demo app](https://github.com/V4run-Sharma/RedisRateLimiterDemo) and its `verify.sh`.
 
 ## Testing
 
