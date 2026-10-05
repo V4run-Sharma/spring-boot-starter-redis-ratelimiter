@@ -1,0 +1,20 @@
+README.md
+  s_d6b357511fa333::t_84e29be2d7f8f6 312-313
+  s_d6b357511fa333::t_60face78f6da51 13-14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.11",
+  "base_commit_sha": "5a066fe19b3eef40e324123f071d4655187a99a2",
+  "prompts": {},
+  "sessions": {
+    "s_d6b357511fa333": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e89ade13-d29e-4502-b594-7652c44c8eae",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "gdncomm-varun-sharma <varun.sharma@gdn-commerce.com>"
+    }
+  }
+}
